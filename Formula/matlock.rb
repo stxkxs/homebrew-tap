@@ -11,7 +11,7 @@ class Matlock < Formula
   on_macos do
     if Hardware::CPU.intel?
       url "https://github.com/stxkxs/matlock/releases/download/v0.2.0/matlock_0.2.0_darwin_amd64.tar.gz"
-      sha256 "619e8806a13a9225606304bf1ba3b061a2b13b1aa203b8aafc57d47b92c348dc"
+      sha256 "e6bb551a49896a430e50f944b24e2de8dbc6bc14fd0ed8b15ff574a261be6030"
 
       define_method(:install) do
         bin.install "matlock"
@@ -19,7 +19,7 @@ class Matlock < Formula
     end
     if Hardware::CPU.arm?
       url "https://github.com/stxkxs/matlock/releases/download/v0.2.0/matlock_0.2.0_darwin_arm64.tar.gz"
-      sha256 "11191b2377c67ab4425491875dac17f109e8f4063173a94f7b404afb34a6fe6c"
+      sha256 "299f40a7c597d6e3b9389457e1f3898532f15f99da68c6ece6d7b31347597d32"
 
       define_method(:install) do
         bin.install "matlock"
@@ -30,14 +30,14 @@ class Matlock < Formula
   on_linux do
     if Hardware::CPU.intel? && Hardware::CPU.is_64_bit?
       url "https://github.com/stxkxs/matlock/releases/download/v0.2.0/matlock_0.2.0_linux_amd64.tar.gz"
-      sha256 "52dcf877bcccb92fb2c8dcb93945e518b7a9a3ecd640ab612d18e292b6a9e01f"
+      sha256 "e4c6ee98038431cf0f19f8c2d9104af255bb64a1351a05c397e672c99aad1462"
       define_method(:install) do
         bin.install "matlock"
       end
     end
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
       url "https://github.com/stxkxs/matlock/releases/download/v0.2.0/matlock_0.2.0_linux_arm64.tar.gz"
-      sha256 "4ea7ed164dd99d501c75a5771983bcb313c54f9a09a621a79b40cc771a193940"
+      sha256 "f1c4723a1d533c670139fe8b9066f8ba043f255b08415603edbeb4ebdbf87297"
       define_method(:install) do
         bin.install "matlock"
       end
