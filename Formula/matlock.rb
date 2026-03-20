@@ -5,21 +5,21 @@
 class Matlock < Formula
   desc "Multi-cloud security and cost swiss army knife — audit IAM permissions, spot cost anomalies, find orphaned resources, and flag insecure storage across AWS, GCP, and Azure"
   homepage "https://github.com/stxkxs/matlock"
-  version "0.1.0"
+  version "0.2.0"
   license "MIT"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/stxkxs/matlock/releases/download/v0.1.0/matlock_0.1.0_darwin_amd64.tar.gz"
-      sha256 "5dd54a5652895c923e3f7fc690e4e524878228b1301531f129605147b82a9bb0"
+      url "https://github.com/stxkxs/matlock/releases/download/v0.2.0/matlock_0.2.0_darwin_amd64.tar.gz"
+      sha256 "619e8806a13a9225606304bf1ba3b061a2b13b1aa203b8aafc57d47b92c348dc"
 
       define_method(:install) do
         bin.install "matlock"
       end
     end
     if Hardware::CPU.arm?
-      url "https://github.com/stxkxs/matlock/releases/download/v0.1.0/matlock_0.1.0_darwin_arm64.tar.gz"
-      sha256 "a2e2227b8d6a9d205a10528792d7103fbdaaded4e22c15769c756825b5080809"
+      url "https://github.com/stxkxs/matlock/releases/download/v0.2.0/matlock_0.2.0_darwin_arm64.tar.gz"
+      sha256 "11191b2377c67ab4425491875dac17f109e8f4063173a94f7b404afb34a6fe6c"
 
       define_method(:install) do
         bin.install "matlock"
@@ -29,15 +29,15 @@ class Matlock < Formula
 
   on_linux do
     if Hardware::CPU.intel? && Hardware::CPU.is_64_bit?
-      url "https://github.com/stxkxs/matlock/releases/download/v0.1.0/matlock_0.1.0_linux_amd64.tar.gz"
-      sha256 "643da7d779bef7f8002111bc1665ce841d8ea8c5208cfc747050c25ad1dfb7a2"
+      url "https://github.com/stxkxs/matlock/releases/download/v0.2.0/matlock_0.2.0_linux_amd64.tar.gz"
+      sha256 "52dcf877bcccb92fb2c8dcb93945e518b7a9a3ecd640ab612d18e292b6a9e01f"
       define_method(:install) do
         bin.install "matlock"
       end
     end
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/stxkxs/matlock/releases/download/v0.1.0/matlock_0.1.0_linux_arm64.tar.gz"
-      sha256 "733d82806afca6473efd73bbf88eaac06c6f2f162d374b539e77811891b569ab"
+      url "https://github.com/stxkxs/matlock/releases/download/v0.2.0/matlock_0.2.0_linux_arm64.tar.gz"
+      sha256 "4ea7ed164dd99d501c75a5771983bcb313c54f9a09a621a79b40cc771a193940"
       define_method(:install) do
         bin.install "matlock"
       end
