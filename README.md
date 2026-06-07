@@ -18,7 +18,7 @@ brew install nanohype/tap/cloudgov
 
 | Tool | Description |
 |------|-------------|
-| [cloudgov](https://github.com/nanohype/cloudgov) | Multi-cloud governance CLI — IAM, cost, posture, drift, compliance |
+| [cloudgov](https://github.com/nanohype/cloudgov) | AWS security & cost CLI — IAM, cost, posture, drift, hygiene, K8s RBAC |
 
 ## Usage without tapping
 
