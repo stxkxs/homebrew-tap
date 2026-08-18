@@ -1,0 +1,78 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HOMEBREW_NO_ANALYTICS: 1
+  HOMEBREW_NO_AUTO_UPDATE: 1
+  HOMEBREW_NO_ENV_HINTS: 1
+
+jobs:
+  formula:
+    name: style, audit, install
+    runs-on: macos-latest
+    steps:
+      - name: Check out the tap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install the checkout as a real tap
+        run: |
+          tap_dir="$(brew --repository)/Library/Taps/nanohype/homebrew-tap"
+          mkdir -p "$(dirname "$tap_dir")"
+          # cp -R, never `ln -s`. A symlinked tap resolves and audits without
+          # error but silently skips audit's RuboCop cops: the same checkout
+          # reports one finding as a symlink and two as a real directory. The
+          # gate would pass for the wrong reason.
+          cp -R "$GITHUB_WORKSPACE" "$tap_dir"
+
+      - name: brew style
+        run: brew style nanohype/tap
+
+      - name: brew audit
+        # --except=version is a permanent, structural suppression rather than a
+        # workaround for this one formula. GoReleaser always emits `version` in
+        # the formulae it generates (see the brews: block in
+        # nanohype/cloudgov/.goreleaser.yaml), so every formula this tap will
+        # ever receive carries that finding. The declared version is correct and
+        # matches the URL — audit's objection is that stating it is redundant.
+        run: brew audit --online --except=version nanohype/tap/cloudgov
+
+      - name: brew audit --strict (advisory)
+        # Advisory, not blocking, and expected to fail today on exactly one
+        # finding: Formula/cloudgov.rb:48 uses "#{bin}/cloudgov" where audit
+        # wants bin/"cloudgov". Unlike the redundant `version` above, that one is
+        # fixable upstream, in the brews[].test block of
+        # nanohype/cloudgov/.goreleaser.yaml. Editing it here would be reverted
+        # by the next generated formula, so this job tracks the upstream fix
+        # instead: it goes green on its own the day cloudgov ships it, and can be
+        # promoted to blocking at that point.
+        continue-on-error: true
+        run: brew audit --strict --online --except=version nanohype/tap/cloudgov
+
+      - name: brew install and brew test
+        run: |
+          brew install --formula nanohype/tap/cloudgov
+          brew test --formula nanohype/tap/cloudgov
+
+  checksums:
+    name: verify published artifact checksums
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Verify every declared sha256 against its published artifact
+        # The install job above only exercises the runner's own platform, which
+        # leaves three of the four declared checksums unverified — including
+        # both Linux ones. This checks all of them.
+        run: ./script/verify-artifact-checksums.sh
