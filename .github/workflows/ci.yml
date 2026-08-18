@@ -62,7 +62,7 @@ jobs:
       - name: brew install and brew test
         run: |
           brew install --formula nanohype/tap/cloudgov
-          brew test --formula nanohype/tap/cloudgov
+          brew test nanohype/tap/cloudgov
 
   checksums:
     name: verify published artifact checksums
