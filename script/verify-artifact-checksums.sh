@@ -8,7 +8,11 @@
 # user machines, so every declared checksum gets checked, not just the one the
 # CI runner happens to install.
 #
-# Fails on the first mismatch. A checksum gate that warns is not a gate.
+# Every checksum in the file is checked; each mismatch is reported and the run
+# exits non-zero if any failed. The parsed pair count is asserted against the
+# number of sha256 lines in the formula, so a formula shape this parser does not
+# understand fails loudly rather than being silently verified in part. A
+# checksum gate that reports success over partial coverage is not a gate.
 
 set -euo pipefail
 
@@ -29,46 +33,49 @@ sha256_of_stdin() {
   fi
 }
 
-# `url` is always immediately followed by its `sha256` in a formula, so pairing
+# A formula's `url` is always immediately followed by its `sha256`, so pairing
 # them in document order is sound. Emits "<url> <sha256>" per line.
 declared_pairs() {
-  awk '
-    /^[[:space:]]*url[[:space:]]+"/ {
-      line = $0
-      sub(/^[[:space:]]*url[[:space:]]+"/, "", line)
-      sub(/".*$/, "", line)
-      url = line
-      next
-    }
-    /^[[:space:]]*sha256[[:space:]]+"/ {
-      if (url == "") next
-         line = $0
-         sub(/^[[:space:]]*sha256[[:space:]]+"/, "", line)
-         sub(/".*$/, "", line)
-         print url " " line
-         url = ""
-         }
-         ' "$1"
-         }
-         
-         total=0
-         failed=0
-         
-         for formula in "${formula_dir}"/*.rb; do
-         if [[ ! -e ${formula} ]]
+  local line url=""
+  while IFS= read -r line
+  do
+    if [[ ${line} =~ ^[[:space:]]*url[[:space:]]+\"([^\"]+)\" ]]
+    then
+      url="${BASH_REMATCH[1]}"
+    elif [[ ${line} =~ ^[[:space:]]*sha256[[:space:]]+\"([^\"]+)\" ]]
+    then
+      if [[ -n ${url} ]]
       then
+        printf '%s %s\n' "${url}" "${BASH_REMATCH[1]}"
+        url=""
+      fi
+    fi
+  done <"$1"
+}
+
+declared_sha256_count() {
+  grep -c -E '^[[:space:]]*sha256[[:space:]]+"' "$1" || true
+}
+
+total=0
+failed=0
+
+for formula in "${formula_dir}"/*.rb
+do
+  if [[ ! -e ${formula} ]]
+  then
     echo "error: no formulae in '${formula_dir}'" >&2
     exit 1
   fi
 
-  pairs_in_formula=0
+  verified_in_formula=0
   while read -r url declared
   do
     if [[ -z ${url} ]]
     then
       continue
     fi
-    pairs_in_formula=$((pairs_in_formula + 1))
+    verified_in_formula=$((verified_in_formula + 1))
     total=$((total + 1))
 
     printf '%s\n  %s\n' "${formula}" "${url}"
@@ -86,7 +93,19 @@ declared_pairs() {
     fi
   done <<<"$(declared_pairs "${formula}")"
 
-  if [[ ${pairs_in_formula} -eq 0 ]]
+  # The guarantee is "every declared sha256 was checked", not "at least one
+  # was". Anything this parser could not pair is a coverage hole, and a
+  # coverage hole in a checksum gate reads as success.
+  declared_count="$(declared_sha256_count "${formula}")"
+  if [[ ${verified_in_formula} -ne ${declared_count} ]]
+  then
+    echo "error: '${formula}' declares ${declared_count} sha256 value(s) but" >&2
+    echo "       ${verified_in_formula} could be paired with a url and checked." >&2
+    echo "       Refusing to report success over partial coverage." >&2
+    exit 1
+  fi
+
+  if [[ ${declared_count} -eq 0 ]]
   then
     echo "error: no url/sha256 pairs parsed from '${formula}'" >&2
     exit 1

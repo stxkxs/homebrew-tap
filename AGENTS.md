@@ -37,11 +37,17 @@ Two consequences worth knowing before you touch anything:
 
 | Check | Blocking | Covers |
 | --- | --- | --- |
-| `brew style` | yes | formula RuboCop, plus shellcheck + shfmt over `script/` |
+| `brew style` | yes | formula RuboCop, plus shellcheck + shfmt over `script/` (§) |
 | `brew audit --online --except=version` | yes | formula correctness, reachable homepage and URLs |
-| `brew audit --strict --online --except=version` | no | tracks one upstream-fixable finding |
+| `script/strict-audit.sh` | yes | `brew audit --strict`, allowing only known generator findings |
 | `brew install` + `brew test` | yes | the runner's platform installs and the binary runs |
 | `script/verify-artifact-checksums.sh` | yes | **every** declared `sha256` against its published artifact |
+
+(§) The shell rules `brew style` applies come from Homebrew's own
+`.shellcheckrc` and its shfmt settings, not from any config in this repo. The
+same `shellcheck` or `shfmt` invoked directly against a plain clone will not
+agree with it. Run the checks through `brew style` — and `brew style --fix` to
+settle shfmt layout — rather than reproducing the rules by hand.
 
 Two things about that setup are deliberate and easy to "fix" wrongly:
 
@@ -51,12 +57,18 @@ with the version it scans from the URL. It fails with no flags at all — not
 strict-only, not online-only — so every formula this tap will ever receive
 carries it. Dropping the flag turns the gate red on correct formulae.
 
-**The advisory strict job is expected to fail today**, on exactly one finding:
-`Formula/cloudgov.rb:48` uses `"#{bin}/cloudgov"` where audit wants
-`bin/"cloudgov"`. That one *is* fixable, in cloudgov's `.goreleaser.yaml`
-`brews[].test` block. It stays advisory so the fix lands upstream rather than
-being patched here and lost on the next release; it goes green on its own once
-cloudgov ships, and can be promoted to blocking then.
+**`script/strict-audit.sh` allows one known finding and fails on any other.**
+`brew audit --strict` reports `Formula/cloudgov.rb:48` using `"#{bin}/cloudgov"`
+where it wants `bin/"cloudgov"`. That one *is* fixable, in cloudgov's
+`.goreleaser.yaml` `brews[].test` block, so the fix belongs upstream rather than
+in a generated file the next release overwrites.
+
+The step is blocking rather than `continue-on-error`. A permanently-failing
+advisory step renders "1 problem" and "3 problems" identically, so a second,
+real finding would hide behind the expected one. The script asserts which
+findings are expected instead: known ones pass, anything new fails the build,
+and once cloudgov ships the fix a clean run says so and asks to be simplified
+away.
 
 **Never symlink the checkout into `Library/Taps` to run these locally.** A
 symlinked tap resolves and audits without complaint but silently skips audit's

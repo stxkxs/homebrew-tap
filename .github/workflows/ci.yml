@@ -47,17 +47,20 @@ jobs:
         # matches the URL — audit's objection is that stating it is redundant.
         run: brew audit --online --except=version nanohype/tap/cloudgov
 
-      - name: brew audit --strict (advisory)
-        # Advisory, not blocking, and expected to fail today on exactly one
-        # finding: Formula/cloudgov.rb:48 uses "#{bin}/cloudgov" where audit
-        # wants bin/"cloudgov". Unlike the redundant `version` above, that one is
-        # fixable upstream, in the brews[].test block of
-        # nanohype/cloudgov/.goreleaser.yaml. Editing it here would be reverted
-        # by the next generated formula, so this job tracks the upstream fix
-        # instead: it goes green on its own the day cloudgov ships it, and can be
-        # promoted to blocking at that point.
-        continue-on-error: true
-        run: brew audit --strict --online --except=version nanohype/tap/cloudgov
+      - name: brew audit --strict, allowing known generator findings
+        # `brew audit --strict` still reports Formula/cloudgov.rb:48 using
+        # "#{bin}/cloudgov" where audit wants bin/"cloudgov". Unlike the
+        # redundant `version` above that one is fixable, in the brews[].test
+        # block of nanohype/cloudgov/.goreleaser.yaml, so the fix belongs
+        # upstream rather than in a generated file that the next release
+        # overwrites.
+        #
+        # This is blocking, not `continue-on-error`. A permanently-failing
+        # advisory step renders "1 problem" and "3 problems" identically, so a
+        # second, real finding would hide behind the expected one. The script
+        # asserts which findings are expected: known ones pass, anything new
+        # fails, and a clean run says so and asks to be simplified away.
+        run: ./script/strict-audit.sh nanohype/tap/cloudgov
 
       - name: brew install and brew test
         run: |
