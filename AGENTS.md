@@ -40,8 +40,14 @@ Two consequences worth knowing before you touch anything:
 | `brew style` | yes | formula RuboCop, plus shellcheck + shfmt over `script/` (§) |
 | `brew audit --online --except=version` | yes | formula correctness, reachable homepage and URLs |
 | `script/strict-audit.sh` | yes | `brew audit --strict`, allowing only known generator findings |
-| `brew install` + `brew test` | yes | the runner's platform installs and the binary runs |
+| `brew install` + `brew test` | yes | every formula installs and its test block runs |
 | `script/verify-artifact-checksums.sh` | yes | **every** declared `sha256` against its published artifact |
+| `script/test-classify-audit-findings.sh` | yes | the classifier's own allow/deny logic |
+
+Every step derives its subject from `script/tap-formulae.sh` rather than naming a
+formula, so adding a formula to the tap is covered without editing CI. That
+script exits non-zero on an empty tap, because a step handed an empty list
+passes while checking nothing.
 
 (§) The shell rules `brew style` applies come from Homebrew's own
 `.shellcheckrc` and its shfmt settings, not from any config in this repo. The
@@ -57,7 +63,7 @@ with the version it scans from the URL. It fails with no flags at all — not
 strict-only, not online-only — so every formula this tap will ever receive
 carries it. Dropping the flag turns the gate red on correct formulae.
 
-**`script/strict-audit.sh` allows one known finding and fails on any other.**
+**`script/strict-audit.sh` allows known findings and fails on any other.**
 `brew audit --strict` reports `Formula/cloudgov.rb:48` using `"#{bin}/cloudgov"`
 where it wants `bin/"cloudgov"`. That one *is* fixable, in cloudgov's
 `.goreleaser.yaml` `brews[].test` block, so the fix belongs upstream rather than
@@ -65,15 +71,26 @@ in a generated file the next release overwrites.
 
 The step is blocking rather than `continue-on-error`. A permanently-failing
 advisory step renders "1 problem" and "3 problems" identically, so a second,
-real finding would hide behind the expected one. The script asserts which
-findings are expected instead: known ones pass, anything new fails the build,
-and once cloudgov ships the fix a clean run says so and asks to be simplified
-away.
+real finding would hide behind the expected one. `script/classify-audit-findings.sh`
+asserts which findings are expected instead: known ones pass, anything new fails
+the build, and once cloudgov ships the fix a clean run says so and asks to be
+simplified away.
 
-**Never symlink the checkout into `Library/Taps` to run these locally.** A
-symlinked tap resolves and audits without complaint but silently skips audit's
-RuboCop cops — the same checkout reports one finding as a symlink and two as a
-real directory. Use `cp -R` or a clone, as CI does.
+The allowance is keyed by formula, so a second formula cannot inherit another's.
+`script/test-classify-audit-findings.sh` covers that and the rest of the
+classifier's logic on synthetic audit output.
+
+**Two ways to run these locally and get a green result that means nothing:**
+
+**Never symlink the checkout into `Library/Taps`.** A symlinked tap resolves and
+audits without complaint but silently skips audit's RuboCop cops — the same
+checkout reports one finding as a symlink and two as a real directory. Use
+`cp -R` or a clone, as CI does.
+
+**Never reach for `brew audit --tap`.** This tap is untrusted (`brew tap-info
+nanohype/tap` says so), and Homebrew skips an untrusted tap's formulae under
+`--tap`, exiting 0 having audited nothing. Name formulae explicitly, which is
+what `script/tap-formulae.sh` is for.
 
 ## Renovate
 
@@ -93,3 +110,8 @@ where both try to bump the same file.
 2. Release it. GoReleaser opens the formula PR here.
 3. Add the tool to the `README.md` table, description matching the formula's
    `desc`.
+
+CI needs no change: every step enumerates the tap. If the new formula carries a
+generator-side finding of its own, add an entry for it to `expected_findings` in
+`script/classify-audit-findings.sh` — keyed by formula name — and open the fix
+upstream.
