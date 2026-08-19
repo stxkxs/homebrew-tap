@@ -39,43 +39,55 @@ jobs:
         run: brew style nanohype/tap
 
       - name: brew audit
+        # Formulae are enumerated rather than named, so a formula added to the
+        # tap is covered without editing CI.
+        #
+        # Enumerated rather than passed via `brew audit --tap`, too: Homebrew
+        # skips an untrusted tap's formulae under --tap and exits 0 having
+        # audited nothing. `brew tap-info nanohype/tap` reports "Untrusted", so
+        # that form would report success while checking nothing.
+        #
         # --except=version is a permanent, structural suppression rather than a
-        # workaround for this one formula. GoReleaser always emits `version` in
-        # the formulae it generates (see the brews: block in
-        # nanohype/cloudgov/.goreleaser.yaml), so every formula this tap will
-        # ever receive carries that finding. The declared version is correct and
-        # matches the URL — audit's objection is that stating it is redundant.
-        run: brew audit --online --except=version nanohype/tap/cloudgov
+        # workaround for one formula. GoReleaser always emits `version` in the
+        # formulae it generates (see the brews: block in
+        # nanohype/cloudgov/.goreleaser.yaml), and audit calls that redundant
+        # with the version scanned from the URL. It fails with no flags at all,
+        # so every formula this tap will ever receive carries it.
+        run: |
+          set -euo pipefail
+          ./script/tap-formulae.sh | xargs brew audit --online --except=version
 
       - name: brew audit --strict, allowing known generator findings
-        # `brew audit --strict` still reports Formula/cloudgov.rb:48 using
-        # "#{bin}/cloudgov" where audit wants bin/"cloudgov". Unlike the
-        # redundant `version` above that one is fixable, in the brews[].test
-        # block of nanohype/cloudgov/.goreleaser.yaml, so the fix belongs
-        # upstream rather than in a generated file that the next release
-        # overwrites.
-        #
-        # This is blocking, not `continue-on-error`. A permanently-failing
-        # advisory step renders "1 problem" and "3 problems" identically, so a
-        # second, real finding would hide behind the expected one. The script
-        # asserts which findings are expected: known ones pass, anything new
-        # fails, and a clean run says so and asks to be simplified away.
-        run: ./script/strict-audit.sh nanohype/tap/cloudgov
+        # Blocking, not `continue-on-error`. A permanently-failing advisory step
+        # renders "1 problem" and "3 problems" identically, so a second, real
+        # finding would hide behind the expected one. The allowance is asserted
+        # per formula instead: known findings pass, anything new fails, and a
+        # clean run says so and asks to be simplified away.
+        run: ./script/strict-audit.sh
 
       - name: brew install and brew test
         run: |
-          brew install --formula nanohype/tap/cloudgov
-          brew test nanohype/tap/cloudgov
+          set -euo pipefail
+          ./script/tap-formulae.sh | while read -r formula; do
+            brew install --formula "${formula}"
+            brew test "${formula}"
+          done
 
-  checksums:
-    name: verify published artifact checksums
+  checks:
+    name: verify checksums and gate logic
     runs-on: ubuntu-latest
     steps:
       - name: Check out the tap
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Verify every declared sha256 against its published artifact
-        # The install job above only exercises the runner's own platform, which
-        # leaves three of the four declared checksums unverified — including
-        # both Linux ones. This checks all of them.
+        # The install job only exercises the runner's own platform, which leaves
+        # the other platforms' checksums unverified. This checks all of them,
+        # for every formula in the tap.
         run: ./script/verify-artifact-checksums.sh
+
+      - name: Test the audit-finding classifier
+        # The classifier's whole job is noticing when audit output changes, and
+        # it fails open if its allowance stops matching. Runs on synthetic
+        # input: no Homebrew, no network.
+        run: ./script/test-classify-audit-findings.sh
